@@ -1,15 +1,17 @@
 import React from 'react';
-import { Navbar, Footer } from './Navbar';
-import { Breadcrumbs } from '../components/Breadcrumbs';
+import { Navbar } from '../components/Navbar';
+import { Footer } from '../components/Footer';
+import { MarqueeSection } from '../components/MarqueeSection';
 
 export const MainLayout = ({ children }) => {
   return (
-    <div className="min-h-screen flex flex-col bg-cream/20">
+    <div className="min-h-screen flex flex-col">
       <Navbar />
-      <Breadcrumbs />
       <main className="flex-grow">
         {children}
       </main>
+      {/* Marquee Animation Above Footer */}
+      <MarqueeSection />
       <Footer />
     </div>
   );

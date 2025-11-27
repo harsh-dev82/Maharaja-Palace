@@ -15,7 +15,10 @@ import { BookingPage } from './pages/BookingPage';
 import { BanquetPage } from './pages/BanquetPage';
 import { RestaurantPage } from './pages/RestaurantPage';
 import { AdminPage } from './pages/AdminPage';
-import { GalleryPage, AboutPage, ContactPage, NotFoundPage } from './pages/PlaceholderPages';
+import { GalleryPage } from './pages/GalleryPage';
+import { AboutPage } from './pages/AboutPage';
+import { ContactPage } from './pages/ContactPage';
+import { NotFoundPage } from './pages/NotFoundPage';
 
 import './styles/globals.css';
 
