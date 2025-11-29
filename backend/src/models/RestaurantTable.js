@@ -1,36 +1,48 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const restaurantTableSchema = new mongoose.Schema(
   {
     tableNumber: {
       type: String,
-      required: [true, 'Please provide table number'],
+      required: [true, "Table number is required"],
       unique: true,
+      trim: true,
+      uppercase: true,
     },
     capacity: {
       type: Number,
-      required: [true, 'Please specify table capacity'],
-      min: 1,
+      required: [true, "Table capacity is required"],
+      min: [1, "Minimum capacity is 1"],
+      max: [20, "Maximum capacity is 20"],
     },
     location: {
       type: String,
-      enum: ['main_hall', 'garden', 'private_room', 'lounge'],
-      required: true,
+      enum: {
+        values: [
+          "Indoor",
+          "Outdoor",
+          "VIP",
+          "Terrace",
+          "Poolside",
+          "Private Room",
+        ],
+        message: "{VALUE} is not a valid location",
+      },
+      required: [true, "Location is required"],
     },
-    description: String,
-    status: {
-      type: String,
-      enum: ['available', 'reserved', 'occupied'],
-      default: 'available',
-    },
-    features: {
-      hasPrivacy: { type: Boolean, default: false },
-      hasWindowView: { type: Boolean, default: false },
-      hasOutdoorAccess: { type: Boolean, default: false },
-    },
+    features: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
     isActive: {
       type: Boolean,
       default: true,
+    },
+    notes: {
+      type: String,
+      maxlength: [500, "Notes cannot exceed 500 characters"],
     },
   },
   {
@@ -38,4 +50,26 @@ const restaurantTableSchema = new mongoose.Schema(
   }
 );
 
-export default mongoose.model('RestaurantTable', restaurantTableSchema);
+// Indexes for efficient queries
+restaurantTableSchema.index({ tableNumber: 1 });
+restaurantTableSchema.index({ capacity: 1, location: 1 });
+restaurantTableSchema.index({ isActive: 1 });
+
+// Virtual field to get booking count
+restaurantTableSchema.virtual("bookingCount", {
+  ref: "RestaurantBooking",
+  localField: "_id",
+  foreignField: "table",
+  count: true,
+});
+
+// Enable virtuals in JSON
+restaurantTableSchema.set("toJSON", { virtuals: true });
+restaurantTableSchema.set("toObject", { virtuals: true });
+
+const RestaurantTable = mongoose.model(
+  "RestaurantTable",
+  restaurantTableSchema
+);
+
+export default RestaurantTable;

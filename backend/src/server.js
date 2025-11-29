@@ -1,29 +1,38 @@
-import app from './app.js';
-import connectDB from './config/db.js';
-import { config } from './config/env.js';
+import app from "./app.js";
+import connectDB from "./config/db.js";
+import config from "./config/env.js";
 
-// Connect to MongoDB
+// Handle uncaught exceptions
+process.on("uncaughtException", (err) => {
+  console.error("❌ UNCAUGHT EXCEPTION! Shutting down...");
+  console.error(err.name, err.message);
+  process.exit(1);
+});
+
+// Connect to database
 connectDB();
 
 // Start server
-const server = app.listen(config.port, () => {
-  console.log(`\n🏰 Maharaja Palace Hotel Booking System`);
-  console.log(`🚀 Server running on port ${config.port}`);
+const PORT = config.port;
+
+const server = app.listen(PORT, () => {
+  console.log("");
+  console.log("🏰 ====================================");
+  console.log("   MAHARAJA PALACE API SERVER");
+  console.log("====================================");
+  console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📍 Environment: ${config.nodeEnv}`);
-  console.log(`🔗 MongoDB: ${config.mongodbUri}`);
-  console.log(`\n✅ Server is ready to accept requests\n`);
+  console.log(`🌐 API: http://localhost:${PORT}/api`);
+  console.log(`❤️  Health: http://localhost:${PORT}/api/health`);
+  console.log("====================================");
+  console.log("");
 });
 
 // Handle unhandled promise rejections
-process.on('unhandledRejection', (err) => {
-  console.error(`❌ Unhandled Rejection: ${err.message}`);
-  server.close(() => process.exit(1));
-});
-
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received. Shutting down gracefully');
+process.on("unhandledRejection", (err) => {
+  console.error("❌ UNHANDLED REJECTION! Shutting down...");
+  console.error(err.name, err.message);
   server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
+    process.exit(1);
   });
 });

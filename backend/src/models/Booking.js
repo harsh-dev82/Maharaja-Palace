@@ -1,69 +1,99 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const bookingSchema = new mongoose.Schema(
   {
-    bookingNumber: {
+    bookingId: {
       type: String,
       unique: true,
-      required: true,
     },
-    guest: {
+    user: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
+      ref: "User",
+      required: [true, "User is required"],
     },
     room: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Room',
-      required: true,
+      ref: "Room",
+      required: [true, "Room is required"],
+    },
+    roomType: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "RoomType",
+      required: [true, "Room type is required"],
     },
     checkInDate: {
       type: Date,
-      required: [true, 'Please provide check-in date'],
+      required: [true, "Check-in date is required"],
     },
     checkOutDate: {
       type: Date,
-      required: [true, 'Please provide check-out date'],
+      required: [true, "Check-out date is required"],
+    },
+    guestsCount: {
+      type: Number,
+      required: [true, "Number of guests is required"],
+      min: [1, "At least 1 guest is required"],
     },
     numberOfNights: {
       type: Number,
-      required: true,
     },
-    numberOfGuests: {
+    pricePerNight: {
       type: Number,
-      required: [true, 'Please specify number of guests'],
-      min: 1,
-    },
-    roomRate: {
-      type: Number,
-      required: true,
     },
     totalPrice: {
       type: Number,
-      required: true,
-    },
-    specialRequests: {
-      type: String,
-      default: '',
     },
     status: {
       type: String,
-      enum: ['pending', 'confirmed', 'checked-in', 'checked-out', 'cancelled'],
-      default: 'pending',
+      enum: {
+        values: [
+          "pending",
+          "confirmed",
+          "checked-in",
+          "checked-out",
+          "cancelled",
+        ],
+        message: "{VALUE} is not a valid status",
+      },
+      default: "pending",
     },
     paymentStatus: {
       type: String,
-      enum: ['pending', 'completed', 'failed', 'refunded'],
-      default: 'pending',
+      enum: ["pending", "paid", "failed", "refunded"],
+      default: "pending",
     },
     paymentMethod: {
       type: String,
-      enum: ['credit_card', 'debit_card', 'razorpay', 'bank_transfer'],
-      default: null,
+      enum: ["card", "upi", "netbanking", "cash"],
     },
-    transactionId: {
+    paymentId: {
+      type: String, // Razorpay payment ID
+    },
+    specialRequests: {
       type: String,
-      default: null,
+      maxlength: [500, "Special requests cannot exceed 500 characters"],
+    },
+    cancellationReason: {
+      type: String,
+      maxlength: [500, "Cancellation reason cannot exceed 500 characters"],
+    },
+    cancelledAt: {
+      type: Date,
+    },
+    cancelledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    actualCheckInDate: {
+      type: Date,
+    },
+    actualCheckOutDate: {
+      type: Date,
+    },
+    // Auto-expire unpaid bookings after 15 minutes
+    expiresAt: {
+      type: Date,
+      index: { expires: "0s" }, // TTL index
     },
   },
   {
@@ -71,14 +101,62 @@ const bookingSchema = new mongoose.Schema(
   }
 );
 
-// Auto-generate booking number
-bookingSchema.pre('save', async function (next) {
-  if (this.isNew) {
-    const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 10000);
-    this.bookingNumber = `BK-${timestamp}-${random}`;
+// Generate unique booking ID
+bookingSchema.pre("save", async function (next) {
+  if (!this.bookingId) {
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substring(2, 7).toUpperCase();
+    this.bookingId = `BK${timestamp}${random}`.toUpperCase();
   }
   next();
 });
 
-export default mongoose.model('Booking', bookingSchema);
+// Calculate number of nights and total price
+bookingSchema.pre("save", function (next) {
+  if (this.isModified("checkInDate") || this.isModified("checkOutDate")) {
+    const diffTime = Math.abs(this.checkOutDate - this.checkInDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    this.numberOfNights = diffDays;
+
+    if (this.pricePerNight) {
+      this.totalPrice = this.pricePerNight * diffDays;
+    }
+  }
+  next();
+});
+
+// Set expiry time for pending bookings (15 minutes)
+bookingSchema.pre("save", function (next) {
+  if (this.isNew && this.status === "pending") {
+    this.expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+  }
+
+  // Remove expiry if confirmed
+  if (this.status === "confirmed" && this.expiresAt) {
+    this.expiresAt = undefined;
+  }
+
+  next();
+});
+
+// Indexes for efficient queries
+bookingSchema.index({ user: 1, createdAt: -1 });
+bookingSchema.index({ room: 1, status: 1 });
+bookingSchema.index({ checkInDate: 1, checkOutDate: 1 });
+bookingSchema.index({ status: 1, paymentStatus: 1 });
+bookingSchema.index({ bookingId: 1 });
+
+// Method to check if booking is active (blocks the room)
+bookingSchema.methods.isActive = function () {
+  return ["pending", "confirmed", "checked-in"].includes(this.status);
+};
+
+// Method to check if cancellable
+bookingSchema.methods.isCancellable = function () {
+  const now = new Date();
+  return this.status === "confirmed" && this.checkInDate > now;
+};
+
+const Booking = mongoose.model("Booking", bookingSchema);
+
+export default Booking;
